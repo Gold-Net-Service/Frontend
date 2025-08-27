@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import './styles/responsive.css';
 
 import Header from './components/Header';
 // import SearchFilter from './components/SearchFilter';
@@ -153,16 +154,18 @@ function App() {
 
     return (
         <div className="App">
-            <Header
-                onNavigate={setCurrentTab}
-                increaseFontSize={handleIncreaseFontSize}
-                decreaseFontSize={handleDecreaseFontSize}
-                resetFontSize={handleResetFontSize}
-            />
+            <div className="container">
+                <Header
+                    onNavigate={setCurrentTab}
+                    increaseFontSize={handleIncreaseFontSize}
+                    decreaseFontSize={handleDecreaseFontSize}
+                    resetFontSize={handleResetFontSize}
+                />
 
-            <main className="main-content">{renderContent()}</main>
+                <main className="main-content">{renderContent()}</main>
 
-            {selectedJob && <JobDetail job={selectedJob} onClose={handleCloseJobDetail} />}
+                {selectedJob && <JobDetail job={selectedJob} onClose={handleCloseJobDetail} />}
+            </div>
         </div>
     );
 }
