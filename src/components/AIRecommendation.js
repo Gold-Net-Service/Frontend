@@ -1,260 +1,157 @@
-/* AI 맞춤 추천 페이지
+import React, { useState, useEffect } from 'react';
 
-import React, { useState, useEffect } from 'react'; 
+const AIRecommendation = () => {
+    const memberId = 1; // 하드코딩된 memberId
+    const [recommendations, setRecommendations] = useState([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(true);
+    const [error, setError] = useState(null);
 
-const AIRecommendation = ({ userProfile, setUserProfile, jobs }) => {
-  const [step, setStep] = useState(1);
-  const [recommendations, setRecommendations] = useState([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const fetchRecommendations = async (isRefresh = false) => {
+        setIsAnalyzing(true);
+        setError(null);
+        try {
+            const endpoint = isRefresh
+                ? `http://52.78.64.2:8080/api/recommendations/jobs/refresh?memberId=${memberId}&limit=10`
+                : `http://52.78.64.2:8080/api/recommendations/jobs?memberId=${memberId}&limit=10`;
 
-  const handleProfileChange = (key, value) => {
-    setUserProfile(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
+            const response = await fetch(endpoint, {
+                method: isRefresh ? 'POST' : 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
 
-  const addSkill = (skill) => {
-    if (skill && !userProfile.skills.includes(skill)) {
-      setUserProfile(prev => ({
-        ...prev,
-        skills: [...prev.skills, skill]
-      }));
-    }
-  };
+            const formattedRecommendations = data.map((rec) => {
+                return {
+                    job: {
+                        id: rec.jobPostingId,
+                        company: rec.brandName,
+                        position: rec.title,
+                        salary: rec.salaryInfo,
+                        location: rec.location,
+                        ageGroup: rec.preferredAgeGroup,
+                        experience: '정보 없음',
+                        category: rec.category,
+                        title: rec.title,
+                        brand: rec.brandName,
+                        workDays: rec.workDays,
+                        workHours: rec.workHours,
+                        education: '정보 없음',
+                        address: rec.workRegion || rec.location,
+                        description: rec.detailedDescription,
+                        benefits: ['4대보험 완비'],
+                    },
+                    matchScore: rec.matchingScore,
+                    reasons: [rec.matchingReason || 'AI가 이력서와 잘 매칭되었다고 판단했습니다'],
+                    skillGaps: [],
+                };
+            });
 
-  const removeSkill = (skillToRemove) => {
-    setUserProfile(prev => ({
-      ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove)
-    }));
-  };
-
-  const analyzeProfile = () => {
-    setIsAnalyzing(true);
-    
-    // AI 분석 시뮬레이션
-    setTimeout(() => {
-      const mockRecommendations = [
-        {
-          job: jobs[0],
-          matchScore: 92,
-          reasons: ['물류 경험과 매우 적합', '연령대가 적절함', '근무 지역이 가까움'],
-          skillGaps: []
-        },
-        {
-          job: jobs[1],
-          matchScore: 78,
-          reasons: ['서비스업 경험 활용 가능', '의사소통 능력 중요'],
-          skillGaps: ['기본 컴퓨터 활용']
+            setRecommendations(formattedRecommendations);
+        } catch (err) {
+            setError(err.message);
+            console.error('AI 추천 불러오기 실패:', err);
+        } finally {
+            setIsAnalyzing(false);
         }
-      ];
-      
-      setRecommendations(mockRecommendations);
-      setIsAnalyzing(false);
-      setStep(3);
-    }, 2000);
-  };
+    };
 
-  const renderStep1 = () => (
-    <div className="profile-input-step">
-      <h3>🤖 AI 맞춤 일자리 추천</h3>
-      <p>이전 경력과 희망 조건을 알려주시면, AI가 가장 적합한 일자리를 추천해드립니다.</p>
-      
-      <div className="input-group">
-        <label>연령대</label>
-        <select
-          value={userProfile.age}
-          onChange={(e) => handleProfileChange('age', e.target.value)}
-        >
-          <option value="">선택해주세요</option>
-          <option value="50-55">50-55세</option>
-          <option value="55-60">55-60세</option>
-          <option value="60-65">60-65세</option>
-          <option value="65-70">65-70세</option>
-          <option value="70+">70세 이상</option>
-        </select>
-      </div>
+    useEffect(() => {
+        // 컴포넌트 마운트 시 초기 추천 데이터 불러오기
+        fetchRecommendations();
+    }, [memberId]); // memberId가 변경될 때마다 다시 불러오기
 
-      <div className="input-group">
-        <label>이전 직업 (최근 또는 주된 직업)</label>
-        <input
-          type="text"
-          placeholder="예: 사무직, 영업, 제조업, 서비스업 등"
-          value={userProfile.previousJob}
-          onChange={(e) => handleProfileChange('previousJob', e.target.value)}
-        />
-      </div>
+    const renderRecommendations = () => (
+        <div className="recommendations-result">
+            <h2 className="recommendations-title">🎯 맞춤 일자리 추천</h2>
+            {error && <p className="error-message">오류: {error}</p>}
+            {recommendations.length === 0 && !isAnalyzing && !error ? (
+                <p className="no-results">추천 일자리가 없습니다.</p>
+            ) : (
+                <div className="recommendations-grid">
+                    {recommendations.map((rec, index) => (
+                        <div key={index} className="recommendation-card">
+                            <div className="card-header">
+                                <div className="match-score-badge">
+                                    <span className="score-number">{rec.matchScore}%</span>
+                                    <span className="score-label">매칭</span>
+                                </div>
+                                <div className="company-info">
+                                    <h3 className="company-name">{rec.job.company}</h3>
+                                    <h4 className="position-title">{rec.job.position}</h4>
+                                </div>
+                            </div>
 
-      <div className="input-group">
-        <label>보유 기술/역량</label>
-        <div className="skills-input">
-          <input
-            type="text"
-            placeholder="기술이나 역량을 입력하고 엔터를 누르세요"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                addSkill(e.target.value);
-                e.target.value = '';
-              }
-            }}
-          />
-        </div>
-        <div className="skills-list">
-          {userProfile.skills.map(skill => (
-            <span key={skill} className="skill-tag">
-              {skill}
-              <button onClick={() => removeSkill(skill)}>×</button>
-            </span>
-          ))}
-        </div>
-      </div>
+                            <div className="card-body">
+                                <div className="job-details">
+                                    <div className="detail-item">
+                                        <span className="icon">💰</span>
+                                        <span className="value">{rec.job.salary}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                        <span className="icon">📍</span>
+                                        <span className="value">{rec.job.location}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                        <span className="icon">📅</span>
+                                        <span className="value">{rec.job.workDays}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                        <span className="icon">⏰</span>
+                                        <span className="value">{rec.job.workHours}</span>
+                                    </div>
+                                </div>
 
-      <button 
-        className="btn-next-step"
-        onClick={() => setStep(2)}
-        disabled={!userProfile.age || !userProfile.previousJob}
-      >
-        다음 단계
-      </button>
-    </div>
-  );
+                                <div className="matching-info">
+                                    <div className="match-reasons">
+                                        <h5>✅ 매칭 이유</h5>
+                                        <ul>
+                                            {rec.reasons.map((reason, i) => (
+                                                <li key={i}>{reason}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
 
-  const renderStep2 = () => (
-    <div className="preference-input-step">
-      <h3>희망 근무 조건</h3>
-      
-      <div className="input-group">
-        <label>희망 근무 지역</label>
-        <select
-          value={userProfile.preferredLocation}
-          onChange={(e) => handleProfileChange('preferredLocation', e.target.value)}
-        >
-          <option value="">상관없음</option>
-          <option value="서울시">서울시</option>
-          <option value="경기도">경기도</option>
-          <option value="인천시">인천시</option>
-          <option value="부산시">부산시</option>
-        </select>
-      </div>
-
-      <div className="input-group">
-        <label>희망 급여</label>
-        <select
-          value={userProfile.preferredSalary}
-          onChange={(e) => handleProfileChange('preferredSalary', e.target.value)}
-        >
-          <option value="">상관없음</option>
-          <option value="200만원 이하">200만원 이하</option>
-          <option value="200-300만원">200-300만원</option>
-          <option value="300만원 이상">300만원 이상</option>
-        </select>
-      </div>
-
-      <div className="step-buttons">
-        <button className="btn-prev-step" onClick={() => setStep(1)}>
-          이전
-        </button>
-        <button className="btn-analyze" onClick={analyzeProfile}>
-          AI 분석 시작
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => (
-    <div className="recommendations-result">
-      <h3>🎯 맞춤 일자리 추천 결과</h3>
-      
-      {recommendations.map((rec, index) => (
-        <div key={index} className="recommendation-card">
-          <div className="match-score">
-            <div className="score-circle">
-              <span className="score-number">{rec.matchScore}%</span>
-              <span className="score-label">매칭률</span>
-            </div>
-          </div>
-          
-          <div className="job-info">
-            <h4>{rec.job.company}</h4>
-            <p>{rec.job.position}</p>
-            <div className="job-details-mini">
-              <span>💰 {rec.job.salary}</span>
-              <span>📍 {rec.job.location}</span>
-            </div>
-          </div>
-          
-          <div className="match-analysis">
-            <div className="match-reasons">
-              <h5>✅ 매칭 이유</h5>
-              <ul>
-                {rec.reasons.map((reason, i) => (
-                  <li key={i}>{reason}</li>
-                ))}
-              </ul>
-            </div>
-            
-            {rec.skillGaps.length > 0 && (
-              <div className="skill-gaps">
-                <h5>📚 추가 필요 역량</h5>
-                <ul>
-                  {rec.skillGaps.map((gap, i) => (
-                    <li key={i}>{gap}</li>
-                  ))}
-                </ul>
-              </div>
+                                <div className="card-actions">
+                                    <a
+                                        href="https://www.seniorro.or.kr:4431/noin/main.do"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn-apply"
+                                    >
+                                        지원하기
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             )}
-          </div>
-          
-          <div className="recommendation-actions">
-            <button className="btn-apply-recommended">지원하기</button>
-            <button className="btn-training-info">관련 교육 보기</button>
-          </div>
+            <div className="refresh-section">
+                <button className="btn-refresh" onClick={() => fetchRecommendations(true)}>
+                    새로운 추천 받기
+                </button>
+            </div>
         </div>
-      ))}
-      
-      <button className="btn-restart" onClick={() => setStep(1)}>
-        새로 분석하기
-      </button>
-    </div>
-  );
+    );
 
-  const renderAnalyzing = () => (
-    <div className="analyzing-screen">
-      <div className="loading-animation">
-        <div className="spinner"></div>
-        <h3>AI가 맞춤 일자리를 분석중입니다...</h3>
-        <p>경력과 조건을 바탕으로 최적의 일자리를 찾고 있어요</p>
-      </div>
-    </div>
-  );
-
-  if (isAnalyzing) return renderAnalyzing();
-
-  return (
-    <div className="ai-recommendation">
-      <div className="step-indicator">
-        <div className={`step ${step >= 1 ? 'active' : ''}`}>
-          <span>1</span>
-          <label>경력 입력</label>
+    const renderAnalyzing = () => (
+        <div className="analyzing-screen">
+            <div className="loading-animation">
+                <div className="spinner"></div>
+                <h3>AI가 맞춤 일자리를 분석중입니다...</h3>
+                <p>경력과 조건을 바탕으로 최적의 일자리를 찾고 있어요</p>
+            </div>
         </div>
-        <div className={`step ${step >= 2 ? 'active' : ''}`}>
-          <span>2</span>
-          <label>희망 조건</label>
-        </div>
-        <div className={`step ${step >= 3 ? 'active' : ''}`}>
-          <span>3</span>
-          <label>추천 결과</label>
-        </div>
-      </div>
+    );
 
-      <div className="step-content">
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-      </div>
-    </div>
-  );
+    if (isAnalyzing) return renderAnalyzing();
+    return renderRecommendations();
 };
 
-export default AIRecommendation; */
+export default AIRecommendation;
